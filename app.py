@@ -4,25 +4,42 @@ import pandas as pd
 import plotly.graph_objects as go
 from engine.backtester import run_price_action_strategy
 
-st.set_page_config(page_title="Price Action Backtester V2", layout="wide")
+st.set_page_config(page_title="Price Action Backtester V3", layout="wide")
 
 st.sidebar.title("🔍 Market Explorer")
 
-market_type = st.sidebar.selectbox("Market Category", ["Crypto", "Forex", "Stocks", "Indices"])
+# Added Indian Stocks to the top of the list
+market_type = st.sidebar.selectbox("Market Category", ["Indian Stocks (NSE)", "Crypto", "US Stocks", "Forex", "Indices"])
 
+# Expanded ticker dictionary
 tickers = {
+    "Indian Stocks (NSE)": ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS", "SBIN.NS", "ITC.NS", "L&T.NS"],
+    "US Stocks": ["NVDA", "TSLA", "AAPL", "MSFT", "AMZN"],
     "Crypto": ["BTC-USD", "ETH-USD", "SOL-USD", "DOGE-USD"],
     "Forex": ["EURUSD=X", "GBPUSD=X", "JPY=X"],
-    "Stocks": ["NVDA", "TSLA", "AAPL", "MSFT", "RELIANCE.NS"],
-    "Indices": ["^GSPC", "^IXIC", "^NSEI"]
+    "Indices": ["^NSEI", "^BSESN", "^GSPC", "^IXIC"] # NSEI = Nifty 50, BSESN = Sensex
 }
 
 symbol = st.sidebar.selectbox("Select Asset", tickers[market_type])
 timeframe = st.sidebar.selectbox("Timeframe", ["15m", "1h", "4h", "1d"])
 
 st.sidebar.divider()
-st.sidebar.subheader("Strategy Rules")
+st.sidebar.subheader("Strategy Settings")
 rr_min = st.sidebar.slider("Minimum Risk/Reward", 1.5, 5.0, 2.5)
+
+# --- NEW: Strategy & Risk Explanation ---
+with st.sidebar.expander("📖 Strategy & Risk Description", expanded=True):
+    st.markdown("""
+    **The Strategy: Pure Price Action**
+    This system maps institutional **Supply and Demand Zones** without using lagging indicators.
+    *   **Demand Zone (Long):** Identifies a tight consolidation "Base" candle, immediately followed by a massive Green "Impulse" candle.
+    *   **Supply Zone (Short):** Identifies a tight consolidation "Base" candle, immediately followed by a massive Red "Impulse" candle.
+    
+    **The Risk Rule**
+    *   **Entry:** Triggered automatically when price drops back into a valid Demand zone, or rallies into a valid Supply zone.
+    *   **Stop Loss (SL):** Placed strictly at the opposite edge of the zone to ensure tight risk.
+    *   **Take Profit (TP):** Calculated dynamically using the Risk/Reward slider. At a 1:2.5 ratio, the system strictly targets 2.5 units of reward for every 1 unit of risk. If this ratio cannot be met, the trade is skipped.
+    """)
 
 if st.sidebar.button("Run Backtest"):
     with st.spinner(f"Fetching data and analyzing {symbol}..."):
@@ -48,7 +65,7 @@ if st.sidebar.button("Run Backtest"):
             
             m1.metric("Total Trades Taken", total_trades)
             m2.metric("Win Rate", f"{win_rate:.1f}%")
-            m3.metric("Net Profit (Risk Units)", f"{total_r:.2f} R", delta=f"{total_r:.2f}")
+            m3.metric("Net Profit", f"{total_r:.2f} R", delta=f"{total_r:.2f}")
             m4.metric("Risk/Reward Profile", f"1 : {rr_min}")
             
             st.divider()
@@ -81,7 +98,6 @@ if st.sidebar.button("Run Backtest"):
             with col2:
                 st.subheader("Trade Log")
                 if total_trades > 0:
-                    # Format dataframe for display
                     display_df = trades_df[['entry_time', 'type', 'outcome', 'pnl']].copy()
                     display_df['entry_time'] = display_df['entry_time'].dt.strftime('%b %d, %H:%M')
                     
